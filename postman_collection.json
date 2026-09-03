@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "POS Kafe Jalur Langit API Collection",
-    "description": "Postman Collection resmi untuk pengujian seluruh 10 endpoint API POS Kafe Jalur Langit (7 Tabel Bahasa Indonesia, Auth, Roles, RLS, & 3 Trigger).",
+    "description": "Postman Collection resmi untuk pengujian seluruh 14 endpoint API POS Kafe Jalur Langit (7 Tabel Bahasa Indonesia, Auth, Roles, RLS, 13 Stored Procedures, & 3 Trigger).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -253,6 +253,77 @@
               "raw": "{{baseUrl}}/restock/riwayat",
               "host": ["{{baseUrl}}"],
               "path": ["restock", "riwayat"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Manajemen Akun & Privilege (UC-04)",
+      "item": [
+        {
+          "name": "Get Daftar Akun Pengguna (sp_get_daftar_pengguna - Manajer)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/akun",
+              "host": ["{{baseUrl}}"],
+              "path": ["akun"]
+            }
+          }
+        },
+        {
+          "name": "Buat Akun Kasir Baru (sp_buat_akun_kasir - Manajer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"kasir3\",\n  \"password\": \"kasir123\",\n  \"nama_lengkap\": \"Budi Kasir Shift Siang\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/akun/kasir",
+              "host": ["{{baseUrl}}"],
+              "path": ["akun", "kasir"]
+            }
+          }
+        },
+        {
+          "name": "Konfigurasi Privilege User (sp_atur_privilege - Manajer)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"kasir3\",\n  \"aksi\": \"GRANT\",\n  \"objek\": \"EXECUTE ON PROCEDURE sp_checkout_transaksi\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/akun/privilege",
+              "host": ["{{baseUrl}}"],
+              "path": ["akun", "privilege"]
+            }
+          }
+        },
+        {
+          "name": "Nonaktifkan Akun User (sp_nonaktifkan_akun - Manajer)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/akun/3",
+              "host": ["{{baseUrl}}"],
+              "path": ["akun", "3"]
             }
           }
         }
