@@ -1,0 +1,262 @@
+{
+  "info": {
+    "name": "POS Kafe Jalur Langit API Collection",
+    "description": "Postman Collection resmi untuk pengujian seluruh 10 endpoint API POS Kafe Jalur Langit (7 Tabel Bahasa Indonesia, Auth, Roles, RLS, & 3 Trigger).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autentikasi User Access (UC-00)",
+      "item": [
+        {
+          "name": "Login Kasir (sp_login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('token', jsonData.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"kasir1\",\n  \"password\": \"kasir123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login Kasir via sp_login. Token JWT otomatis tersimpan di variabel {{token}}."
+          }
+        },
+        {
+          "name": "Login Manajer (sp_login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('token', jsonData.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"manajer1\",\n  \"password\": \"manajer123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login Manajer via sp_login. Token JWT otomatis tersimpan di variabel {{token}}."
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success) {",
+                  "    pm.collectionVariables.set('token', '');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Katalog & Detail Barang (UC-01 & UC-03)",
+      "item": [
+        {
+          "name": "Get Katalog Barang (sp_get_katalog_barang)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/barang",
+              "host": ["{{baseUrl}}"],
+              "path": ["barang"]
+            }
+          }
+        },
+        {
+          "name": "Get Detail Barang ID 1 (sp_get_detail_barang)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/barang/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["barang", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Harga & Spesifikasi (sp_update_harga_spesifikasi - Manajer)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"harga\": 24000,\n  \"spesifikasi\": {\n    \"tingkat_gula\": [\"normal\", \"sedikit\", \"tanpa_gula\"],\n    \"suhu\": [\"dingin\", \"panas\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/barang/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["barang", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Transaksi & Struk Digital (UC-01)",
+      "item": [
+        {
+          "name": "Checkout Pesanan Menu (sp_checkout_transaksi - Kasir)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"id_barang\": 1, \"jumlah\": 2 },\n    { \"id_barang\": 6, \"jumlah\": 1 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transaksi/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["transaksi", "checkout"]
+            }
+          }
+        },
+        {
+          "name": "Get Transaksi Harian (sp_get_transaksi_harian)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transaksi",
+              "host": ["{{baseUrl}}"],
+              "path": ["transaksi"]
+            }
+          }
+        },
+        {
+          "name": "Get Detail Struk Digital JSONB (sp_get_detail_struk)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transaksi/struk/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["transaksi", "struk", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Restock Stok Barang (UC-02)",
+      "item": [
+        {
+          "name": "Restock Stok Barang (sp_restock_barang - Manajer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_barang\": 1,\n  \"jumlah_tambah\": 20,\n  \"nama_supplier\": \"PT Biji Kopi Nusantara\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restock",
+              "host": ["{{baseUrl}}"],
+              "path": ["restock"]
+            }
+          }
+        },
+        {
+          "name": "Get Laporan Restock (sp_get_laporan_restock)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/restock/riwayat",
+              "host": ["{{baseUrl}}"],
+              "path": ["restock", "riwayat"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
