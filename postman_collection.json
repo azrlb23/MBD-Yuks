@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "POS Kafe Jalur Langit API Collection",
-    "description": "Postman Collection resmi untuk pengujian seluruh 14 endpoint API POS Kafe Jalur Langit (7 Tabel Bahasa Indonesia, Auth, Roles, RLS, 13 Stored Procedures, & 3 Trigger).",
+    "description": "Postman Collection resmi dan lengkap untuk pengujian seluruh 14 endpoint API POS Kafe Jalur Langit (7 Tabel Bahasa Indonesia, Auth, Roles, RLS, 13 Stored Procedures, & 3 Trigger). Setiap request dilengkapi body JSON yang akurat dan realistis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -28,7 +28,7 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "if (jsonData.success && jsonData.data.token) {",
+                  "if (jsonData.success && jsonData.data && jsonData.data.token) {",
                   "    pm.collectionVariables.set('token', jsonData.data.token);",
                   "}"
                 ],
@@ -50,7 +50,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["auth", "login"]
             },
-            "description": "Login Kasir via sp_login. Token JWT otomatis tersimpan di variabel {{token}}."
+            "description": "Login sebagai Kasir menggunakan Stored Procedure `sp_login`. Token JWT yang dikembalikan otomatis disimpan ke variabel `{{token}}`."
           }
         },
         {
@@ -61,7 +61,7 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "if (jsonData.success && jsonData.data.token) {",
+                  "if (jsonData.success && jsonData.data && jsonData.data.token) {",
                   "    pm.collectionVariables.set('token', jsonData.data.token);",
                   "}"
                 ],
@@ -83,11 +83,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["auth", "login"]
             },
-            "description": "Login Manajer via sp_login. Token JWT otomatis tersimpan di variabel {{token}}."
+            "description": "Login sebagai Manajer menggunakan Stored Procedure `sp_login`. Token JWT yang dikembalikan otomatis disimpan ke variabel `{{token}}`."
           }
         },
         {
-          "name": "Logout",
+          "name": "Logout Pengguna",
           "event": [
             {
               "listen": "test",
@@ -111,7 +111,8 @@
               "raw": "{{baseUrl}}/auth/logout",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "logout"]
-            }
+            },
+            "description": "Logout dari sesi saat ini dan mengosongkan variabel `{{token}}`."
           }
         }
       ]
@@ -130,7 +131,8 @@
               "raw": "{{baseUrl}}/barang",
               "host": ["{{baseUrl}}"],
               "path": ["barang"]
-            }
+            },
+            "description": "Membaca seluruh katalog menu kafe aktif via View `vw_katalog_barang` & REFCURSOR `sp_get_katalog_barang`."
           }
         },
         {
@@ -144,7 +146,8 @@
               "raw": "{{baseUrl}}/barang/1",
               "host": ["{{baseUrl}}"],
               "path": ["barang", "1"]
-            }
+            },
+            "description": "Membaca detail 1 barang (termasuk stok & JSONB spesifikasi varian) via `sp_get_detail_barang`."
           }
         },
         {
@@ -157,13 +160,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"harga\": 24000,\n  \"spesifikasi\": {\n    \"tingkat_gula\": [\"normal\", \"sedikit\", \"tanpa_gula\"],\n    \"suhu\": [\"dingin\", \"panas\"]\n  }\n}"
+              "raw": "{\n  \"harga\": 24000.00,\n  \"spesifikasi\": {\n    \"suhu\": [\"dingin\", \"panas\"],\n    \"tingkat_gula\": [\"normal\", \"sedikit\", \"tanpa_gula\"],\n    \"biji_kopi\": \"Arabika Gayo Single Origin\",\n    \"jenis_susu\": [\"susu_sapi_full_cream\", \"susu_oat_almond\"],\n    \"catatan_barista\": \"Rekomendasi disajikan dingin dengan es batu kristal\"\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/barang/1",
               "host": ["{{baseUrl}}"],
               "path": ["barang", "1"]
-            }
+            },
+            "description": "Manajer memperbarui harga dan penggabungan (merge) JSONB spesifikasi menu via `sp_update_harga_spesifikasi` & `fn_merge_spesifikasi`."
           }
         }
       ]
@@ -181,13 +185,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"items\": [\n    { \"id_barang\": 1, \"jumlah\": 2 },\n    { \"id_barang\": 6, \"jumlah\": 1 }\n  ]\n}"
+              "raw": "{\n  \"items\": [\n    {\n      \"id_barang\": 1,\n      \"jumlah\": 2\n    },\n    {\n      \"id_barang\": 4,\n      \"jumlah\": 1\n    },\n    {\n      \"id_barang\": 6,\n      \"jumlah\": 2\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/transaksi/checkout",
               "host": ["{{baseUrl}}"],
               "path": ["transaksi", "checkout"]
-            }
+            },
+            "description": "Kasir melakukan checkout pesanan multi-item via Stored Procedure `sp_checkout_transaksi`. Stok dipotong otomatis via Trigger `trg_kurang_stok` dan dokumen Struk Digital JSONB diterbitkan."
           }
         },
         {
@@ -201,7 +206,8 @@
               "raw": "{{baseUrl}}/transaksi",
               "host": ["{{baseUrl}}"],
               "path": ["transaksi"]
-            }
+            },
+            "description": "Membaca rekap daftar transaksi hari ini via View `vw_transaksi_harian` & Stored Procedure `sp_get_transaksi_harian`."
           }
         },
         {
@@ -215,7 +221,8 @@
               "raw": "{{baseUrl}}/transaksi/struk/1",
               "host": ["{{baseUrl}}"],
               "path": ["transaksi", "struk", "1"]
-            }
+            },
+            "description": "Membaca snapshot dokumen Struk Digital berformat JSONB utuh via `fn_get_detail_struk` & `sp_get_detail_struk`."
           }
         }
       ]
@@ -233,13 +240,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"id_barang\": 1,\n  \"jumlah_tambah\": 20,\n  \"nama_supplier\": \"PT Biji Kopi Nusantara\"\n}"
+              "raw": "{\n  \"id_barang\": 1,\n  \"jumlah_tambah\": 50,\n  \"nama_supplier\": \"PT Biji Kopi Nusantara Utama\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/restock",
               "host": ["{{baseUrl}}"],
               "path": ["restock"]
-            }
+            },
+            "description": "Manajer mencatat penambahan stok porsi menu via Stored Procedure `sp_restock_barang`. Stok barang otomatis bertambah di tabel `barang` via Trigger `trg_tambah_stok_restock`."
           }
         },
         {
@@ -253,7 +261,8 @@
               "raw": "{{baseUrl}}/restock/riwayat",
               "host": ["{{baseUrl}}"],
               "path": ["restock", "riwayat"]
-            }
+            },
+            "description": "Membaca laporan riwayat jurnal penyesuaian stok porsi menu via View `vw_laporan_restock` & `sp_get_laporan_restock`."
           }
         }
       ]
@@ -272,7 +281,8 @@
               "raw": "{{baseUrl}}/akun",
               "host": ["{{baseUrl}}"],
               "path": ["akun"]
-            }
+            },
+            "description": "Manajer membaca seluruh daftar pengguna aktif di sistem via View `vw_daftar_pengguna` & Stored Procedure `sp_get_daftar_pengguna`."
           }
         },
         {
@@ -285,13 +295,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"kasir3\",\n  \"password\": \"kasir123\",\n  \"nama_lengkap\": \"Budi Kasir Shift Siang\"\n}"
+              "raw": "{\n  \"username\": \"kasir_shift_siang\",\n  \"password\": \"PasswordKasir2026!\",\n  \"nama_lengkap\": \"Budi Rahardjo (Kasir Shift Siang)\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/akun/kasir",
               "host": ["{{baseUrl}}"],
               "path": ["akun", "kasir"]
-            }
+            },
+            "description": "Manajer membuat akun pengguna Kasir baru beserta enkripsi password hash via Stored Procedure `sp_buat_akun_kasir`."
           }
         },
         {
@@ -304,13 +315,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"kasir3\",\n  \"aksi\": \"GRANT\",\n  \"objek\": \"EXECUTE ON PROCEDURE sp_checkout_transaksi\"\n}"
+              "raw": "{\n  \"username\": \"kasir_shift_siang\",\n  \"aksi\": \"GRANT\",\n  \"objek\": \"EXECUTE ON PROCEDURE sp_checkout_transaksi\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/akun/privilege",
               "host": ["{{baseUrl}}"],
               "path": ["akun", "privilege"]
-            }
+            },
+            "description": "Manajer mengatur hak akses privilege GRANT/REVOKE pada objek basis data untuk pengguna via Stored Procedure `sp_atur_privilege`."
           }
         },
         {
@@ -324,7 +336,8 @@
               "raw": "{{baseUrl}}/akun/3",
               "host": ["{{baseUrl}}"],
               "path": ["akun", "3"]
-            }
+            },
+            "description": "Manajer menonaktifkan (`is_active = FALSE`) akun pengguna berdasarkan `id_pengguna` via Stored Procedure `sp_nonaktifkan_akun`."
           }
         }
       ]
