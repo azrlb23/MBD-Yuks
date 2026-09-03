@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "POS Kafe Jalur Langit API Collection",
-    "description": "Postman Collection resmi dan lengkap untuk pengujian seluruh 14 endpoint API POS Kafe Jalur Langit (7 Tabel Bahasa Indonesia, Auth, Roles, RLS, 13 Stored Procedures, & 3 Trigger). Setiap request dilengkapi body JSON yang akurat dan realistis.",
+    "description": "Postman Collection resmi dan lengkap untuk pengujian seluruh 17 endpoint API POS Kafe Jalur Langit. Termasuk Autentikasi, CRUD Barang, Kategori, Transaksi, Restock, dan Manajemen Akun.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -39,7 +39,10 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -47,8 +50,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             },
             "description": "Login sebagai Kasir menggunakan Stored Procedure `sp_login`. Token JWT yang dikembalikan otomatis disimpan ke variabel `{{token}}`."
           }
@@ -72,7 +80,10 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -80,8 +91,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             },
             "description": "Login sebagai Manajer menggunakan Stored Procedure `sp_login`. Token JWT yang dikembalikan otomatis disimpan ke variabel `{{token}}`."
           }
@@ -105,12 +121,20 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/auth/logout",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "logout"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
             },
             "description": "Logout dari sesi saat ini dan mengosongkan variabel `{{token}}`."
           }
@@ -125,12 +149,19 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/barang",
-              "host": ["{{baseUrl}}"],
-              "path": ["barang"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "barang"
+              ]
             },
             "description": "Membaca seluruh katalog menu kafe aktif via View `vw_katalog_barang` & REFCURSOR `sp_get_katalog_barang`."
           }
@@ -140,12 +171,20 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/barang/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["barang", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "barang",
+                "1"
+              ]
             },
             "description": "Membaca detail 1 barang (termasuk stok & JSONB spesifikasi varian) via `sp_get_detail_barang`."
           }
@@ -155,8 +194,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -164,10 +209,102 @@
             },
             "url": {
               "raw": "{{baseUrl}}/barang/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["barang", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "barang",
+                "1"
+              ]
             },
             "description": "Manajer memperbarui harga dan penggabungan (merge) JSONB spesifikasi menu via `sp_update_harga_spesifikasi` & `fn_merge_spesifikasi`."
+          }
+        },
+        {
+          "name": "Tambah Barang Baru (sp_tambah_barang - Manajer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama_barang\": \"Kopi Hitam Legendaris\",\n  \"id_kategori\": 1,\n  \"harga\": 15000.00,\n  \"stok\": 100,\n  \"spesifikasi\": {\n    \"suhu\": [\"panas\"],\n    \"biji_kopi\": \"Robusta\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/barang",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "barang"
+              ]
+            },
+            "description": "Manajer menambahkan menu barang baru ke dalam sistem via Stored Procedure `sp_tambah_barang`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2.5 Manajemen Kategori Barang",
+      "item": [
+        {
+          "name": "Get Kategori (sp_get_kategori)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/kategori",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kategori"
+              ]
+            },
+            "description": "Membaca seluruh kategori barang aktif via `sp_get_kategori`."
+          }
+        },
+        {
+          "name": "Tambah Kategori Baru (sp_tambah_kategori - Manajer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama_kategori\": \"Snack Spesial\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kategori",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kategori"
+              ]
+            },
+            "description": "Manajer menambahkan kategori barang baru via Stored Procedure `sp_tambah_kategori`."
           }
         }
       ]
@@ -180,8 +317,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -189,25 +332,37 @@
             },
             "url": {
               "raw": "{{baseUrl}}/transaksi/checkout",
-              "host": ["{{baseUrl}}"],
-              "path": ["transaksi", "checkout"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaksi",
+                "checkout"
+              ]
             },
             "description": "Kasir melakukan checkout pesanan multi-item via Stored Procedure `sp_checkout_transaksi`. Stok dipotong otomatis via Trigger `trg_kurang_stok` dan dokumen Struk Digital JSONB diterbitkan."
           }
         },
         {
-          "name": "Get Transaksi Harian (sp_get_transaksi_harian)",
+          "name": "Get Semua Transaksi (sp_get_semua_transaksi)",
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/transaksi",
-              "host": ["{{baseUrl}}"],
-              "path": ["transaksi"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaksi"
+              ]
             },
-            "description": "Membaca rekap daftar transaksi hari ini via View `vw_transaksi_harian` & Stored Procedure `sp_get_transaksi_harian`."
+            "description": "Membaca rekap daftar transaksi keseluruhan via View `vw_semua_transaksi` & Stored Procedure `sp_get_semua_transaksi`."
           }
         },
         {
@@ -215,12 +370,21 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/transaksi/struk/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["transaksi", "struk", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaksi",
+                "struk",
+                "1"
+              ]
             },
             "description": "Membaca snapshot dokumen Struk Digital berformat JSONB utuh via `fn_get_detail_struk` & `sp_get_detail_struk`."
           }
@@ -235,8 +399,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -244,8 +414,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/restock",
-              "host": ["{{baseUrl}}"],
-              "path": ["restock"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restock"
+              ]
             },
             "description": "Manajer mencatat penambahan stok porsi menu via Stored Procedure `sp_restock_barang`. Stok barang otomatis bertambah di tabel `barang` via Trigger `trg_tambah_stok_restock`."
           }
@@ -255,12 +429,20 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/restock/riwayat",
-              "host": ["{{baseUrl}}"],
-              "path": ["restock", "riwayat"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restock",
+                "riwayat"
+              ]
             },
             "description": "Membaca laporan riwayat jurnal penyesuaian stok porsi menu via View `vw_laporan_restock` & `sp_get_laporan_restock`."
           }
@@ -275,12 +457,19 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/akun",
-              "host": ["{{baseUrl}}"],
-              "path": ["akun"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "akun"
+              ]
             },
             "description": "Manajer membaca seluruh daftar pengguna aktif di sistem via View `vw_daftar_pengguna` & Stored Procedure `sp_get_daftar_pengguna`."
           }
@@ -290,8 +479,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -299,45 +494,52 @@
             },
             "url": {
               "raw": "{{baseUrl}}/akun/kasir",
-              "host": ["{{baseUrl}}"],
-              "path": ["akun", "kasir"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "akun",
+                "kasir"
+              ]
             },
             "description": "Manajer membuat akun pengguna Kasir baru beserta enkripsi password hash via Stored Procedure `sp_buat_akun_kasir`."
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "Manajemen Sistem",
+      "item": [
         {
-          "name": "Konfigurasi Privilege User (sp_atur_privilege - Manajer)",
+          "name": "Universal Toggle Status (sp_toggle_status - Manajer)",
           "request": {
-            "method": "PUT",
+            "method": "PATCH",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"kasir_shift_siang\",\n  \"aksi\": \"GRANT\",\n  \"objek\": \"EXECUTE ON PROCEDURE sp_checkout_transaksi\"\n}"
+              "raw": "{\n    \"entitas\": \"akun\",\n    \"id\": 2,\n    \"is_active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
-              "raw": "{{baseUrl}}/akun/privilege",
-              "host": ["{{baseUrl}}"],
-              "path": ["akun", "privilege"]
-            },
-            "description": "Manajer mengatur hak akses privilege GRANT/REVOKE pada objek basis data untuk pengguna via Stored Procedure `sp_atur_privilege`."
-          }
-        },
-        {
-          "name": "Nonaktifkan Akun User (sp_nonaktifkan_akun - Manajer)",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/akun/3",
-              "host": ["{{baseUrl}}"],
-              "path": ["akun", "3"]
-            },
-            "description": "Manajer menonaktifkan (`is_active = FALSE`) akun pengguna berdasarkan `id_pengguna` via Stored Procedure `sp_nonaktifkan_akun`."
+              "raw": "{{baseUrl}}/sistem/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sistem",
+                "status"
+              ]
+            }
           }
         }
       ]

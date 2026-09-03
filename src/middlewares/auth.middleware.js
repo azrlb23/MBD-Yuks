@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
+import { executeWriteSP } from '../services/sp.service.js';
 
-export const verifyToken = (req, res, next) => {
+export const verifyToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -12,7 +13,21 @@ export const verifyToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecret_jalur_langit_key_2026');
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is not defined in environment variables');
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.jti) {
+      const dbCheck = await executeWriteSP('SELECT fn_cek_sesi_aktif($1::INT, $2::VARCHAR) AS is_active', [decoded.id_pengguna, decoded.jti]);
+      if (!dbCheck || !dbCheck.is_active) {
+        return res.status(403).json({
+          success: false,
+          message: 'Akses ditolak: Sesi telah berakhir atau Anda login di perangkat lain'
+        });
+      }
+    }
+
     req.user = decoded;
     next();
   } catch (error) {
@@ -33,4 +48,31 @@ export const requireRole = (allowedRole) => {
     }
     next();
   };
+};
+
+export const requireGuest = async (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET missing');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.jti) {
+      const dbCheck = await executeWriteSP('SELECT fn_cek_sesi_aktif($1::INT, $2::VARCHAR) AS is_active', [decoded.id_pengguna, decoded.jti]);
+      if (dbCheck && dbCheck.is_active) {
+        return res.status(403).json({
+          success: false,
+          message: 'Anda sudah login. Silakan logout terlebih dahulu'
+        });
+      }
+    }
+    next();
+  } catch (error) {
+    next();
+  }
 };

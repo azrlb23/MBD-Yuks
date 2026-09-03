@@ -1,4 +1,3 @@
--- =============================================================================
 -- POS Kafe Jalur Langit — Master Auto-Init Script for Docker Container (7 Tabel)
 -- Location: /docker-entrypoint-initdb.d/01_init.sql
 -- =============================================================================
@@ -20,7 +19,8 @@ CREATE TABLE pengguna (
     password_hash VARCHAR(255) NOT NULL,
     nama_lengkap  VARCHAR(100) NOT NULL,
     peran         VARCHAR(20) NOT NULL CHECK (peran IN ('manajer', 'kasir')),
-    is_active     BOOLEAN NOT NULL DEFAULT TRUE
+    is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+    token_aktif   VARCHAR(255)
 );
 
 CREATE UNIQUE INDEX idx_pengguna_username ON pengguna (username);
@@ -96,9 +96,9 @@ CREATE INDEX idx_restock_created_at ON restock (created_at);
 -- 2. INITIAL SEED DATA
 -- -----------------------------------------------------------------------------
 INSERT INTO pengguna (username, password_hash, nama_lengkap, peran, is_active) VALUES
-('manajer1', 'manajer123', 'Budi Manajer Utama', 'manajer', TRUE),
-('kasir1',   'kasir123',   'Siti Kasir Shift Pagi', 'kasir', TRUE),
-('kasir2',   'kasir123',   'Rian Kasir Shift Malam', 'kasir', TRUE);
+('manajer1', '$2a$10$Vv/v2rzcXdkh1q2QnmWLO.bg77.FPp1YhKVaj1nlatiH52Eri9iGS', 'Budi Manajer Utama', 'manajer', TRUE),
+('kasir1',   '$2a$10$izjdFE8HbrBRBEFQwtMqKOfKAhE9.2dg.H1Xe/Fo5nd9EsNwj3CJy',   'Siti Kasir Shift Pagi', 'kasir', TRUE),
+('kasir2',   '$2a$10$izjdFE8HbrBRBEFQwtMqKOfKAhE9.2dg.H1Xe/Fo5nd9EsNwj3CJy',   'Rian Kasir Shift Malam', 'kasir', TRUE);
 
 INSERT INTO kategori (nama_kategori) VALUES
 ('Minuman Kopi'), ('Minuman Non-Kopi'), ('Pastry & Dessert'), ('Makanan Berat'), ('Cemilan');
@@ -134,21 +134,23 @@ INSERT INTO struk (id_transaksi, data_struk, dicetak_at) VALUES
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE VIEW vw_daftar_pengguna AS SELECT id_pengguna, username, nama_lengkap, peran, is_active FROM pengguna WHERE is_active = TRUE;
 CREATE OR REPLACE VIEW vw_katalog_barang AS SELECT b.id_barang, b.nama_barang, k.nama_kategori, b.harga, b.stok, b.spesifikasi, b.is_active FROM barang b JOIN kategori k ON b.id_kategori = k.id_kategori WHERE b.is_active = TRUE;
-CREATE OR REPLACE VIEW vw_transaksi_harian AS SELECT t.id_transaksi, t.id_kasir, p.nama_lengkap AS nama_kasir, COUNT(dt.id_detail) AS total_item, t.total_bayar, t.created_at FROM transaksi t JOIN pengguna p ON t.id_kasir = p.id_pengguna LEFT JOIN detail_transaksi dt ON t.id_transaksi = dt.id_transaksi GROUP BY t.id_transaksi, p.nama_lengkap;
+CREATE OR REPLACE VIEW vw_semua_transaksi AS SELECT t.id_transaksi, t.id_kasir, p.nama_lengkap AS nama_kasir, COUNT(dt.id_detail) AS total_item, t.total_bayar, t.created_at FROM transaksi t JOIN pengguna p ON t.id_kasir = p.id_pengguna LEFT JOIN detail_transaksi dt ON t.id_transaksi = dt.id_transaksi GROUP BY t.id_transaksi, p.nama_lengkap;
 CREATE OR REPLACE VIEW vw_laporan_restock AS SELECT r.id_restock, r.id_barang, b.nama_barang, r.jumlah_tambah, r.id_manajer, p.nama_lengkap AS nama_manajer, r.nama_supplier, r.created_at FROM restock r JOIN barang b ON r.id_barang = b.id_barang JOIN pengguna p ON r.id_manajer = p.id_pengguna;
 CREATE OR REPLACE VIEW vw_barang_spesifikasi AS SELECT b.id_barang, b.nama_barang, k.nama_kategori, b.harga, b.stok, kv.key AS spek_kunci, kv.value AS spek_nilai FROM barang b JOIN kategori k ON b.id_kategori = k.id_kategori, LATERAL jsonb_each_text(b.spesifikasi) kv WHERE b.is_active = TRUE;
 
 -- -----------------------------------------------------------------------------
 -- 4. READ-ONLY FUNCTIONS
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION fn_validasi_kredensial(p_username TEXT, p_password TEXT) RETURNS BOOLEAN LANGUAGE plpgsql STABLE AS $$ DECLARE v_valid BOOLEAN := FALSE; BEGIN SELECT (password_hash = p_password) INTO v_valid FROM pengguna WHERE username = p_username AND is_active = TRUE; RETURN COALESCE(v_valid, FALSE); END; $$;
+
 CREATE OR REPLACE FUNCTION fn_validasi_ketersediaan(p_id_barang INT, p_jumlah INT) RETURNS TABLE(valid BOOLEAN, stok_saat_ini INT, harga NUMERIC, nama_barang VARCHAR) LANGUAGE plpgsql STABLE AS $$ BEGIN RETURN QUERY SELECT (b.stok >= p_jumlah AND b.is_active = TRUE) AS valid, b.stok AS stok_saat_ini, b.harga, b.nama_barang FROM barang b WHERE b.id_barang = p_id_barang; END; $$;
 CREATE OR REPLACE FUNCTION fn_merge_spesifikasi(p_spek_lama JSONB, p_spek_baru JSONB) RETURNS JSONB LANGUAGE plpgsql IMMUTABLE AS $$ BEGIN RETURN COALESCE(p_spek_lama, '{}'::JSONB) || COALESCE(p_spek_baru, '{}'::JSONB); END; $$;
-CREATE OR REPLACE FUNCTION fn_get_detail_struk(p_id_transaksi INT) RETURNS JSONB LANGUAGE plpgsql STABLE AS $$ DECLARE v_struk JSONB; BEGIN SELECT s.data_struk INTO v_struk FROM struk s WHERE s.id_transaksi = p_id_transaksi; RETURN v_struk; END; $$;
-CREATE OR REPLACE FUNCTION fn_get_daftar_pengguna() RETURNS SETOF vw_daftar_pengguna LANGUAGE plpgsql STABLE AS $$ BEGIN RETURN QUERY SELECT * FROM vw_daftar_pengguna; END; $$;
-CREATE OR REPLACE FUNCTION fn_get_katalog_barang() RETURNS SETOF vw_katalog_barang LANGUAGE plpgsql STABLE AS $$ BEGIN RETURN QUERY SELECT * FROM vw_katalog_barang; END; $$;
-CREATE OR REPLACE FUNCTION fn_get_transaksi_harian(p_tanggal DATE DEFAULT CURRENT_DATE) RETURNS SETOF vw_transaksi_harian LANGUAGE plpgsql STABLE AS $$ BEGIN RETURN QUERY SELECT * FROM vw_transaksi_harian WHERE (p_tanggal IS NULL OR created_at::DATE = p_tanggal); END; $$;
+CREATE OR REPLACE FUNCTION fn_get_detail_struk(p_id_transaksi INT) RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$ DECLARE v_struk JSONB; BEGIN SELECT s.data_struk INTO v_struk FROM struk s WHERE s.id_transaksi = p_id_transaksi; RETURN v_struk; END; $$;
+CREATE OR REPLACE FUNCTION fn_get_semua_transaksi() RETURNS SETOF vw_semua_transaksi LANGUAGE plpgsql STABLE AS $$ BEGIN RETURN QUERY SELECT * FROM vw_semua_transaksi; END; $$;
 CREATE OR REPLACE FUNCTION fn_get_laporan_restock(p_id_barang INT DEFAULT NULL, p_dari DATE DEFAULT NULL, p_sampai DATE DEFAULT NULL) RETURNS SETOF vw_laporan_restock LANGUAGE plpgsql STABLE AS $$ BEGIN RETURN QUERY SELECT * FROM vw_laporan_restock r WHERE (p_id_barang IS NULL OR r.id_barang = p_id_barang) AND (p_dari IS NULL OR r.created_at::DATE >= p_dari) AND (p_sampai IS NULL OR r.created_at::DATE <= p_sampai); END; $$;
+
+ALTER FUNCTION fn_get_detail_struk(INT) OWNER TO pos_definer;
+ALTER VIEW vw_semua_transaksi OWNER TO pos_definer;
+ALTER FUNCTION fn_get_semua_transaksi() OWNER TO pos_definer;
 
 -- -----------------------------------------------------------------------------
 -- 5. 3 AUTOMATIC TRIGGERS
@@ -168,10 +170,36 @@ CREATE TRIGGER trg_validasi_harga_barang BEFORE INSERT OR UPDATE ON barang FOR E
 -- -----------------------------------------------------------------------------
 -- 6. STORED PROCEDURES
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE PROCEDURE sp_login(p_username TEXT, p_password TEXT, INOUT p_id_pengguna INT DEFAULT NULL, INOUT p_nama TEXT DEFAULT NULL, INOUT p_peran TEXT DEFAULT NULL) LANGUAGE plpgsql AS $$
-DECLARE v_is_valid BOOLEAN; BEGIN v_is_valid := fn_validasi_kredensial(p_username, p_password); IF NOT v_is_valid THEN RAISE EXCEPTION 'Kredensial login salah atau akun tidak aktif' USING ERRCODE = '28P01'; END IF; SELECT id_pengguna, nama_lengkap, peran INTO p_id_pengguna, p_nama, p_peran FROM pengguna WHERE username = p_username; END; $$;
+CREATE OR REPLACE PROCEDURE sp_login(p_username TEXT, INOUT p_id_pengguna INT DEFAULT NULL, INOUT p_password_hash VARCHAR DEFAULT NULL, INOUT p_nama TEXT DEFAULT NULL, INOUT p_peran TEXT DEFAULT NULL, INOUT p_token_aktif VARCHAR DEFAULT NULL) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN 
+    SELECT id_pengguna, password_hash, nama_lengkap, peran INTO p_id_pengguna, p_password_hash, p_nama, p_peran 
+    FROM pengguna WHERE username = p_username AND is_active = TRUE; 
+    
+    IF p_id_pengguna IS NULL THEN 
+        RAISE EXCEPTION 'Username tidak ditemukan atau akun tidak aktif' USING ERRCODE = '28P01'; 
+    END IF; 
+    
+    p_token_aktif := gen_random_uuid()::VARCHAR;
+    UPDATE pengguna SET token_aktif = p_token_aktif WHERE id_pengguna = p_id_pengguna;
+END; $$;
 
-CREATE OR REPLACE PROCEDURE sp_checkout_transaksi(p_id_kasir INT, p_items_jsonb JSONB, INOUT p_id_transaksi INT DEFAULT NULL, INOUT p_total_bayar NUMERIC DEFAULT NULL) LANGUAGE plpgsql AS $$
+CREATE OR REPLACE PROCEDURE sp_logout(p_id_pengguna INT) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    UPDATE pengguna SET token_aktif = NULL WHERE id_pengguna = p_id_pengguna;
+END; $$;
+
+CREATE OR REPLACE FUNCTION fn_cek_sesi_aktif(p_id_pengguna INT, p_token_aktif VARCHAR) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE v_token VARCHAR;
+BEGIN
+    SELECT token_aktif INTO v_token FROM pengguna WHERE id_pengguna = p_id_pengguna;
+    IF v_token = p_token_aktif THEN
+        RETURN TRUE;
+    ELSE
+        RETURN FALSE;
+    END IF;
+END; $$;
+
+CREATE OR REPLACE PROCEDURE sp_checkout_transaksi(p_id_kasir INT, p_items_jsonb JSONB, INOUT p_id_transaksi INT DEFAULT NULL, INOUT p_total_bayar NUMERIC DEFAULT NULL) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE v_item JSONB; v_id_barang INT; v_jumlah INT; v_nama_barang VARCHAR(100); v_harga_satuan NUMERIC(12,2); v_valid BOOLEAN; v_subtotal_item NUMERIC(14,2); v_total NUMERIC(14,2) := 0.00; v_items_struk JSONB := '[]'::JSONB; v_nama_kasir VARCHAR(100);
 BEGIN
     SELECT nama_lengkap INTO v_nama_kasir FROM pengguna WHERE id_pengguna = p_id_kasir AND is_active = TRUE;
@@ -190,23 +218,28 @@ BEGIN
     INSERT INTO struk (id_transaksi, data_struk) VALUES (p_id_transaksi, jsonb_build_object('id_transaksi', p_id_transaksi, 'kasir', v_nama_kasir, 'tanggal', NOW(), 'items', v_items_struk, 'total_bayar', p_total_bayar));
 END; $$;
 
-CREATE OR REPLACE PROCEDURE sp_restock_barang(p_id_manajer INT, p_id_barang INT, p_jumlah_tambah INT, p_nama_supplier VARCHAR(100) DEFAULT NULL) LANGUAGE plpgsql AS $$
+CREATE OR REPLACE PROCEDURE sp_restock_barang(p_id_manajer INT, p_id_barang INT, p_jumlah_tambah INT, p_nama_supplier VARCHAR(100) DEFAULT NULL) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE v_stok_lama INT; BEGIN IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN RAISE EXCEPTION 'Akses ditolak: Hanya Manajer yang berhak melakukan restock/penyesuaian stok'; END IF; SELECT stok INTO v_stok_lama FROM barang WHERE id_barang = p_id_barang; IF v_stok_lama IS NULL THEN RAISE EXCEPTION 'Barang tidak ditemukan'; END IF; INSERT INTO restock (id_barang, jumlah_tambah, id_manajer, nama_supplier) VALUES (p_id_barang, p_jumlah_tambah, p_id_manajer, p_nama_supplier); END; $$;
 
-CREATE OR REPLACE PROCEDURE sp_update_harga_spesifikasi(p_id_manajer INT, p_id_barang INT, p_harga_baru NUMERIC DEFAULT NULL, p_spek_baru JSONB DEFAULT NULL) LANGUAGE plpgsql AS $$
+CREATE OR REPLACE PROCEDURE sp_update_harga_spesifikasi(p_id_manajer INT, p_id_barang INT, p_harga_baru NUMERIC DEFAULT NULL, p_spek_baru JSONB DEFAULT NULL) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE v_spek_lama JSONB; v_spek_merged JSONB; BEGIN IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN RAISE EXCEPTION 'Akses ditolak: Hanya Manajer yang berhak mengubah harga/spesifikasi'; END IF; SELECT spesifikasi INTO v_spek_lama FROM barang WHERE id_barang = p_id_barang; v_spek_merged := fn_merge_spesifikasi(v_spek_lama, p_spek_baru); UPDATE barang SET harga = COALESCE(p_harga_baru, harga), spesifikasi = v_spek_merged WHERE id_barang = p_id_barang; END; $$;
 
-CREATE OR REPLACE PROCEDURE sp_get_katalog_barang(INOUT cur REFCURSOR DEFAULT 'cur_katalog') LANGUAGE plpgsql AS $$ BEGIN OPEN cur FOR SELECT * FROM fn_get_katalog_barang(); END; $$;
-CREATE OR REPLACE PROCEDURE sp_get_detail_barang(p_id_barang INT, INOUT cur REFCURSOR DEFAULT 'cur_detail') LANGUAGE plpgsql AS $$ BEGIN OPEN cur FOR SELECT * FROM barang WHERE id_barang = p_id_barang; END; $$;
-CREATE OR REPLACE PROCEDURE sp_get_transaksi_harian(p_tanggal DATE DEFAULT CURRENT_DATE, INOUT cur REFCURSOR DEFAULT 'cur_trx_harian') LANGUAGE plpgsql AS $$ BEGIN OPEN cur FOR SELECT * FROM fn_get_transaksi_harian(p_tanggal); END; $$;
-CREATE OR REPLACE PROCEDURE sp_get_detail_struk(p_id_transaksi INT, INOUT cur REFCURSOR DEFAULT 'cur_struk') LANGUAGE plpgsql AS $$ BEGIN OPEN cur FOR SELECT fn_get_detail_struk(p_id_transaksi) AS struk_json; END; $$;
-CREATE OR REPLACE PROCEDURE sp_get_laporan_restock(p_id_barang INT DEFAULT NULL, p_dari DATE DEFAULT NULL, p_sampai DATE DEFAULT NULL, INOUT cur REFCURSOR DEFAULT 'cur_restock') LANGUAGE plpgsql AS $$ BEGIN OPEN cur FOR SELECT * FROM fn_get_laporan_restock(p_id_barang, p_dari, p_sampai); END; $$;
-CREATE OR REPLACE PROCEDURE sp_get_daftar_pengguna(INOUT cur REFCURSOR DEFAULT 'cur_pengguna') LANGUAGE plpgsql AS $$ BEGIN OPEN cur FOR SELECT * FROM fn_get_daftar_pengguna(); END; $$;
+CREATE OR REPLACE PROCEDURE sp_get_katalog_barang(INOUT cur REFCURSOR DEFAULT 'cur_katalog') LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN OPEN cur FOR SELECT * FROM vw_katalog_barang; END; $$;
+CREATE OR REPLACE PROCEDURE sp_get_detail_barang(p_id_barang INT, INOUT cur REFCURSOR DEFAULT 'cur_detail') LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN OPEN cur FOR SELECT * FROM barang WHERE id_barang = p_id_barang; END; $$;
+CREATE OR REPLACE PROCEDURE sp_get_semua_transaksi(p_id_pengguna INT, p_peran TEXT, INOUT cur REFCURSOR DEFAULT 'cur_semua_trx') LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN PERFORM set_config('pos.user_id', p_id_pengguna::text, true); PERFORM set_config('pos.peran', p_peran::text, true); OPEN cur FOR SELECT * FROM fn_get_semua_transaksi(); END; $$;
+ALTER PROCEDURE sp_get_semua_transaksi(INT, TEXT, REFCURSOR) OWNER TO pos_definer;
+
+CREATE OR REPLACE PROCEDURE sp_get_detail_struk(p_id_pengguna INT, p_peran TEXT, p_id_transaksi INT, INOUT cur REFCURSOR DEFAULT 'cur_struk') LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN PERFORM set_config('pos.user_id', p_id_pengguna::text, true); PERFORM set_config('pos.peran', p_peran::text, true); IF p_id_transaksi = -1 THEN SELECT id_transaksi INTO p_id_transaksi FROM transaksi ORDER BY created_at DESC LIMIT 1; END IF; OPEN cur FOR SELECT fn_get_detail_struk(p_id_transaksi) AS struk_json; END; $$;
+ALTER PROCEDURE sp_get_detail_struk(INT, TEXT, INT, REFCURSOR) OWNER TO pos_definer;
+
+CREATE OR REPLACE PROCEDURE sp_get_laporan_restock(p_id_barang INT DEFAULT NULL, p_dari DATE DEFAULT NULL, p_sampai DATE DEFAULT NULL, INOUT cur REFCURSOR DEFAULT 'cur_restock') LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN OPEN cur FOR SELECT * FROM fn_get_laporan_restock(p_id_barang, p_dari, p_sampai); END; $$;
+CREATE OR REPLACE PROCEDURE sp_get_daftar_pengguna(INOUT cur REFCURSOR DEFAULT 'cur_pengguna') LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN OPEN cur FOR SELECT * FROM vw_daftar_pengguna; END; $$;
 
 -- -----------------------------------------------------------------------------
 -- 7. ROLES & RLS SECURITY
 -- -----------------------------------------------------------------------------
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'manajer_role') THEN CREATE ROLE manajer_role NOLOGIN; END IF; IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kasir_role') THEN CREATE ROLE kasir_role NOLOGIN; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'manajer_role') THEN CREATE ROLE pos_definer NOLOGIN;
+CREATE ROLE manajer_role NOLOGIN; END IF; IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kasir_role') THEN CREATE ROLE kasir_role NOLOGIN; END IF; END $$;
 
 GRANT USAGE ON SCHEMA public TO manajer_role, kasir_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO manajer_role, kasir_role;
@@ -215,17 +248,83 @@ REVOKE ALL ON ALL TABLES IN SCHEMA public FROM manajer_role, kasir_role;
 GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA public TO manajer_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO manajer_role;
 
-GRANT EXECUTE ON PROCEDURE sp_login TO kasir_role;
-GRANT EXECUTE ON PROCEDURE sp_checkout_transaksi TO kasir_role;
-GRANT EXECUTE ON PROCEDURE sp_get_katalog_barang TO kasir_role;
-GRANT EXECUTE ON PROCEDURE sp_get_detail_barang TO kasir_role;
-GRANT EXECUTE ON PROCEDURE sp_get_transaksi_harian TO kasir_role;
-GRANT EXECUTE ON PROCEDURE sp_get_detail_struk TO kasir_role;
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO pos_definer;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO pos_definer;
+
+GRANT EXECUTE ON PROCEDURE sp_login(TEXT, INT, VARCHAR, TEXT, TEXT, VARCHAR) TO kasir_role;
+GRANT EXECUTE ON PROCEDURE sp_logout(INT) TO kasir_role;
+GRANT EXECUTE ON PROCEDURE sp_checkout_transaksi(INT, JSONB, INT, NUMERIC) TO kasir_role;
+GRANT EXECUTE ON PROCEDURE sp_get_katalog_barang(REFCURSOR) TO kasir_role;
+GRANT EXECUTE ON PROCEDURE sp_get_semua_transaksi(INT, TEXT, REFCURSOR) TO kasir_role;
+GRANT EXECUTE ON PROCEDURE sp_get_detail_struk(INT, TEXT, INT, REFCURSOR) TO kasir_role;
 
 ALTER TABLE transaksi ENABLE ROW LEVEL SECURITY;
+ALTER TABLE struk ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS kasir_self_trx_policy ON transaksi;
-CREATE POLICY kasir_self_trx_policy ON transaksi FOR SELECT TO kasir_role USING (id_kasir = (SELECT id_pengguna FROM pengguna WHERE username = CURRENT_USER));
+DROP POLICY IF EXISTS rls_trx_context ON transaksi;
+CREATE POLICY rls_trx_context ON transaksi FOR SELECT TO pos_definer USING (
+    current_setting('pos.peran', true) = 'manajer' 
+    OR (current_setting('pos.peran', true) = 'kasir' AND id_kasir = NULLIF(current_setting('pos.user_id', true), '')::INT)
+    OR current_setting('pos.peran', true) IS NULL
+);
 
-DROP POLICY IF EXISTS manajer_all_trx_policy ON transaksi;
-CREATE POLICY manajer_all_trx_policy ON transaksi FOR ALL TO manajer_role USING (TRUE);
+DROP POLICY IF EXISTS rls_struk_context ON struk;
+CREATE POLICY rls_struk_context ON struk FOR SELECT TO pos_definer USING (
+    current_setting('pos.peran', true) = 'manajer' 
+    OR (
+        current_setting('pos.peran', true) = 'kasir' 
+        AND (SELECT id_kasir FROM transaksi WHERE id_transaksi = struk.id_transaksi) = NULLIF(current_setting('pos.user_id', true), '')::INT
+    )
+    OR current_setting('pos.peran', true) IS NULL
+);
+
+CREATE OR REPLACE PROCEDURE sp_tambah_barang(p_id_manajer INT, p_nama_barang VARCHAR, p_id_kategori INT, p_harga NUMERIC, p_stok_awal INT, p_spesifikasi JSONB DEFAULT NULL) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN RAISE EXCEPTION 'Akses ditolak: Hanya Manajer'; END IF;
+    INSERT INTO barang (nama_barang, id_kategori, harga, stok, spesifikasi, is_active) VALUES (p_nama_barang, p_id_kategori, p_harga, p_stok_awal, p_spesifikasi, TRUE);
+END; $$;
+
+CREATE OR REPLACE PROCEDURE sp_toggle_status(p_id_manajer INT, p_entitas TEXT, p_id_target INT, p_status BOOLEAN) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN 
+        RAISE EXCEPTION 'Akses ditolak: Hanya Manajer aktif yang berhak mengubah status'; 
+    END IF;
+    
+    IF p_entitas = 'akun' THEN
+        UPDATE pengguna SET is_active = p_status WHERE id_pengguna = p_id_target;
+    ELSIF p_entitas = 'barang' THEN
+        UPDATE barang SET is_active = p_status WHERE id_barang = p_id_target;
+    ELSIF p_entitas = 'kategori' THEN
+        UPDATE kategori SET is_active = p_status WHERE id_kategori = p_id_target;
+    ELSE
+        RAISE EXCEPTION 'Jenis entitas tidak valid (hanya: akun, barang, kategori)';
+    END IF;
+END; $$;
+
+CREATE OR REPLACE PROCEDURE sp_get_kategori(INOUT cur REFCURSOR DEFAULT 'cur_kategori') LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN OPEN cur FOR SELECT id_kategori, nama_kategori FROM kategori ORDER BY id_kategori; END; $$;
+
+CREATE OR REPLACE PROCEDURE sp_buat_akun_kasir(
+    p_id_manajer INT,
+    p_username TEXT,
+    p_password_hash TEXT,
+    p_nama_lengkap TEXT
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN
+        RAISE EXCEPTION 'Akses ditolak: Hanya Manajer yang berhak membuat akun kasir';
+    END IF;
+
+    INSERT INTO pengguna (username, password_hash, nama_lengkap, peran, is_active)
+    VALUES (p_username, p_password_hash, p_nama_lengkap, 'kasir', TRUE);
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE sp_tambah_kategori(p_id_manajer INT, p_nama_kategori VARCHAR) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN RAISE EXCEPTION 'Akses ditolak: Hanya Manajer'; END IF;
+    INSERT INTO kategori (nama_kategori) VALUES (p_nama_kategori);
+END; $$;

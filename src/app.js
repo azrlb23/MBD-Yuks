@@ -9,12 +9,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Global Middlewares
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Root Health Check Route
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
@@ -24,14 +22,11 @@ app.get('/', (req, res) => {
   });
 });
 
-// API Routes Version 1 (/api/v1)
 app.use('/api/v1', apiRoutes);
 
-// Error Handling Middlewares
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Start Express Server
 app.listen(PORT, () => {
   console.log(`=======================================================`);
   console.log(`🚀 POS Jalur Langit Server running on port ${PORT}`);

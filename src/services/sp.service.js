@@ -20,8 +20,13 @@ export const executeReadSP = async (spCallQuery, params = []) => {
 export const executeWriteSP = async (spCallQuery, params = []) => {
   const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const result = await client.query(spCallQuery, params);
+    await client.query('COMMIT');
     return result.rows[0] || result.rows;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
   } finally {
     client.release();
   }

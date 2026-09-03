@@ -36,17 +36,16 @@ export const checkout = async (req, res, next) => {
   }
 };
 
-export const getTransaksiHarian = async (req, res, next) => {
+export const getSemuaTransaksi = async (req, res, next) => {
   try {
-    const { tanggal } = req.query;
+    const { id_pengguna, peran } = req.user;
     const result = await executeReadSP(
-      'CALL sp_get_transaksi_harian($1, $2)',
-      [tanggal || null, 'cur_trx_harian']
+      'CALL sp_get_semua_transaksi($1, $2, $3)',
+      [id_pengguna, peran, 'cur_semua_trx']
     );
-
-    res.json({
+    
+    res.status(200).json({
       success: true,
-      total: result.length,
       data: result
     });
   } catch (error) {
@@ -57,9 +56,13 @@ export const getTransaksiHarian = async (req, res, next) => {
 export const getDetailStruk = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { id_pengguna, peran } = req.user;
+    
+    const transId = id === 'latest' ? -1 : parseInt(id, 10);
+
     const result = await executeReadSP(
-      'CALL sp_get_detail_struk($1, $2)',
-      [id, 'cur_struk']
+      'CALL sp_get_detail_struk($1, $2, $3, $4)',
+      [id_pengguna, peran, transId, 'cur_struk']
     );
 
     if (!result || result.length === 0 || !result[0].struk_json) {

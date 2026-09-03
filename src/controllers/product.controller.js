@@ -53,3 +53,30 @@ export const updateHargaSpesifikasi = async (req, res, next) => {
     next(error);
   }
 };
+
+export const tambahBarang = async (req, res, next) => {
+  try {
+    const { nama_barang, id_kategori, harga, stok, spesifikasi } = req.body;
+    const idManajer = req.user.id_pengguna;
+
+    if (!nama_barang || !id_kategori || !harga || stok === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'nama_barang, id_kategori, harga, dan stok wajib diisi'
+      });
+    }
+
+    await executeWriteSP(
+      'CALL sp_tambah_barang($1, $2, $3, $4, $5, $6)',
+      [idManajer, nama_barang, id_kategori, harga, stok, spesifikasi ? JSON.stringify(spesifikasi) : null]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Barang berhasil ditambahkan'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
