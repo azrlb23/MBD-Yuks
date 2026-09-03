@@ -7,7 +7,7 @@ Dokumen ini berisi spesifikasi Use Case dan perancangan Entity Relationship Diag
 
 ## 1. Diagram & Spesifikasi Use Case
 
-Sistem POS Kafe Jalur Langit memiliki 4 Use Case utama dengan dukungan **User Access Control** (Autentikasi & Hak Akses Peran Manajer vs Kasir).
+Sistem POS Kafe Jalur Langit memiliki 5 Use Case utama dengan dukungan **User Access Control** (Autentikasi & Hak Akses Peran Manajer vs Kasir).
 
 ### Kode PlantUML Diagram Use Case
 
@@ -24,6 +24,7 @@ rectangle "Sistem POS Kafe Jalur Langit" {
     usecase "UC-01 Checkout Penjualan" as UC1
     usecase "UC-02 Restock Barang" as UC2
     usecase "UC-03 Kelola Harga & Spesifikasi Produk" as UC3
+    usecase "UC-04 Kelola Akun Kasir & Privilege" as UC4
 }
 
 K --> UC0
@@ -32,6 +33,7 @@ K --> UC1
 M --> UC0
 M --> UC2
 M --> UC3
+M --> UC4
 @enduml
 ```
 
@@ -73,6 +75,14 @@ M --> UC3
 - **Stored Procedure**: `sp_update_harga_spesifikasi(id_manajer, id_barang, harga_baru, spek_baru)`
 - **Trigger Terkait**: `trg_validasi_harga_barang` (BEFORE INSERT OR UPDATE ON `barang`)
 - **Endpoint API**: `PUT /api/v1/barang/:id`
+
+#### UC-04 — Kelola Akun Kasir & Privilege
+- **Aktor**: Manajer
+- **Deskripsi**: Pengelolaan akun pengguna kasir (pembuatan akun baru, pengaturan hak akses privilege, penonaktifan akun, serta daftar pengguna).
+- **Pre-condition**: Manajer telah login (`peran = 'manajer'`).
+- **Post-condition**: Akun kasir berhasil dibuat/dikonfigurasi/dinonaktifkan pada tabel `pengguna`.
+- **Stored Procedure**: `sp_get_daftar_pengguna`, `sp_buat_akun_kasir`, `sp_atur_privilege`, `sp_nonaktifkan_akun`
+- **Endpoint API**: `GET /api/v1/akun`, `POST /api/v1/akun/kasir`, `PUT /api/v1/akun/privilege`, `DELETE /api/v1/akun/:id`
 
 ---
 

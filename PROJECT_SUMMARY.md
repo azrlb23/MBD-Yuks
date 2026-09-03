@@ -26,7 +26,7 @@ BACKEND — Node.js Express.js (Port 3000)
   ▼
 BASIS DATA — PostgreSQL 17 (Docker, Port 5433)
   ┌─────────────┬──────────┬──────────┬────────────┐
-  │  7 Tabel    │ 5 Views  │ 8 Fungsi │ 10 Stored  │
+  │  7 Tabel    │ 5 Views  │ 8 Fungsi │ 13 Stored  │
   │ (Relasional │(Abstraksi│(Read-Only│ Procedures │
   │  + JSONB)   │  Query)  │ & Logika)│ CALL+INOUT │
   └─────────────┴──────────┴──────────┴────────────┘
@@ -65,7 +65,7 @@ pengguna ------------------------------------------< restock
 
 ## BAGIAN 4 — INVENTARIS LENGKAP OBJEK DATABASE
 
-### 4.1 — 10 Stored Procedures
+### 4.1 — 13 Stored Procedures
 
 | Nama SP | Tipe | Peran Yang Bisa Akses |
 |---|---|---|
@@ -73,6 +73,9 @@ pengguna ------------------------------------------< restock
 | `sp_checkout_transaksi` | Write | Kasir |
 | `sp_restock_barang` | Write | Manajer |
 | `sp_update_harga_spesifikasi` | Write | Manajer |
+| `sp_buat_akun_kasir` | Write | Manajer |
+| `sp_atur_privilege` | Write | Manajer |
+| `sp_nonaktifkan_akun` | Write | Manajer |
 | `sp_get_katalog_barang` | Read (REFCURSOR) | Kasir, Manajer |
 | `sp_get_detail_barang` | Read (REFCURSOR) | Kasir, Manajer |
 | `sp_get_transaksi_harian` | Read (REFCURSOR) | Kasir, Manajer |
@@ -181,12 +184,16 @@ Klien: GET /api/v1/barang
 
 ---
 
-## BAGIAN 6 — 10 ENDPOINT API LENGKAP
+## BAGIAN 6 — 14 ENDPOINT API LENGKAP
 
 | Method | Endpoint | Role Wajib | Fungsi |
 |---|---|---|---|
 | `POST` | `/api/v1/auth/login` | Publik | Login dan terima token JWT |
 | `POST` | `/api/v1/auth/logout` | Semua | Logout (hapus token di sisi klien) |
+| `GET` | `/api/v1/akun` | Manajer | Lihat daftar semua akun pengguna |
+| `POST` | `/api/v1/akun/kasir` | Manajer | Buat akun kasir baru |
+| `PUT` | `/api/v1/akun/privilege` | Manajer | Konfigurasi privilege pengguna |
+| `DELETE` | `/api/v1/akun/:id` | Manajer | Nonaktifkan akun pengguna |
 | `GET` | `/api/v1/barang` | Semua | Lihat katalog 10 menu + JSONB spesifikasi |
 | `GET` | `/api/v1/barang/:id` | Semua | Lihat detail dan stok 1 menu tertentu |
 | `PUT` | `/api/v1/barang/:id` | Manajer | Ubah harga dan merge spesifikasi JSONB |
@@ -379,8 +386,11 @@ docker compose up -d
 # 3. Jalankan backend API
 npm run dev
 
-# 4. Import Postman: d:\MBD\postman_collection.json
-# 5. Mulai dari request "Login Kasir" atau "Login Manajer"
+# 4. Jalankan Pengujian Otomatis Seluruh Endpoint (18 Test Cases)
+node test_all_endpoints.js
+
+# 5. Import Postman: d:\MBD\postman_collection.json
+# 6. Mulai dari request "Login Kasir" atau "Login Manajer"
 ```
 
 ### Koneksi Database (DBeaver / pgAdmin / TablePlus)
