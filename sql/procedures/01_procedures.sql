@@ -220,3 +220,49 @@ BEGIN
     OPEN cur FOR SELECT * FROM fn_get_daftar_pengguna();
 END;
 $$;
+
+CREATE OR REPLACE PROCEDURE sp_buat_akun_kasir(
+    p_id_manajer INT,
+    p_username TEXT,
+    p_password_hash TEXT,
+    p_nama_lengkap TEXT
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN
+        RAISE EXCEPTION 'Akses ditolak: Hanya Manajer yang berhak membuat akun kasir';
+    END IF;
+
+    INSERT INTO pengguna (username, password_hash, nama_lengkap, peran, is_active)
+    VALUES (p_username, p_password_hash, p_nama_lengkap, 'kasir', TRUE);
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_atur_privilege(
+    p_id_manajer INT,
+    p_username TEXT,
+    p_aksi TEXT,
+    p_objek TEXT
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN
+        RAISE EXCEPTION 'Akses ditolak: Hanya Manajer yang berhak mengatur privilege';
+    END IF;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_nonaktifkan_akun(
+    p_id_manajer INT,
+    p_id_target INT
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN
+        RAISE EXCEPTION 'Akses ditolak: Hanya Manajer yang berhak menonaktifkan akun';
+    END IF;
+
+    UPDATE pengguna SET is_active = FALSE WHERE id_pengguna = p_id_target;
+END;
+$$;
+

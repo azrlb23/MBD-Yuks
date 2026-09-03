@@ -3,7 +3,7 @@ import { executeReadSP, executeWriteSP } from '../services/sp.service.js';
 
 export const getDaftarAkun = async (req, res, next) => {
   try {
-    const akunList = await executeReadSP('CALL sp_GetDaftarAkun($1)', ['cur_akun'], 'cur_akun');
+    const akunList = await executeReadSP('CALL sp_get_daftar_pengguna($1)', ['cur_pengguna']);
     res.json({
       success: true,
       total: akunList.length,
@@ -17,7 +17,7 @@ export const getDaftarAkun = async (req, res, next) => {
 export const buatAkunKasir = async (req, res, next) => {
   try {
     const { username, password, nama_lengkap } = req.body;
-    const manajer_id = req.user.user_id;
+    const manajer_id = req.user.id_pengguna;
 
     if (!username || !password || !nama_lengkap) {
       return res.status(400).json({
@@ -29,7 +29,7 @@ export const buatAkunKasir = async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
-    await executeWriteSP('CALL sp_BuatAkunKasir($1, $2, $3, $4)', [
+    await executeWriteSP('CALL sp_buat_akun_kasir($1, $2, $3, $4)', [
       manajer_id,
       username,
       password_hash,
@@ -48,7 +48,7 @@ export const buatAkunKasir = async (req, res, next) => {
 export const aturPrivilege = async (req, res, next) => {
   try {
     const { username, aksi, objek } = req.body;
-    const manajer_id = req.user.user_id;
+    const manajer_id = req.user.id_pengguna;
 
     if (!username || !aksi || !objek) {
       return res.status(400).json({
@@ -57,7 +57,7 @@ export const aturPrivilege = async (req, res, next) => {
       });
     }
 
-    await executeWriteSP('CALL sp_AturPrivilege($1, $2, $3, $4)', [
+    await executeWriteSP('CALL sp_atur_privilege($1, $2, $3, $4)', [
       manajer_id,
       username,
       aksi,
@@ -76,9 +76,9 @@ export const aturPrivilege = async (req, res, next) => {
 export const nonaktifkanAkun = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const manajer_id = req.user.user_id;
+    const manajer_id = req.user.id_pengguna;
 
-    await executeWriteSP('CALL sp_NonaktifkanAkun($1, $2)', [manajer_id, id]);
+    await executeWriteSP('CALL sp_nonaktifkan_akun($1, $2)', [manajer_id, id]);
 
     res.json({
       success: true,
