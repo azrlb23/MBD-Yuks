@@ -292,7 +292,14 @@ BEGIN
     END IF;
     
     IF p_entitas = 'akun' THEN
-        UPDATE pengguna SET is_active = p_status WHERE id_pengguna = p_id_target;
+        IF p_id_target = p_id_manajer AND p_status = FALSE THEN
+            RAISE EXCEPTION 'Akses ditolak: Anda tidak dapat menonaktifkan akun Anda sendiri yang sedang digunakan';
+        END IF;
+
+        UPDATE pengguna 
+        SET is_active = p_status,
+            token_aktif = CASE WHEN p_status = FALSE THEN NULL ELSE token_aktif END
+        WHERE id_pengguna = p_id_target;
     ELSIF p_entitas = 'barang' THEN
         UPDATE barang SET is_active = p_status WHERE id_barang = p_id_target;
     ELSIF p_entitas = 'kategori' THEN
@@ -305,6 +312,28 @@ END; $$;
 CREATE OR REPLACE PROCEDURE sp_get_kategori(INOUT cur REFCURSOR DEFAULT 'cur_kategori') LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN OPEN cur FOR SELECT id_kategori, nama_kategori FROM kategori ORDER BY id_kategori; END; $$;
 
+CREATE OR REPLACE PROCEDURE sp_tambah_pengguna(
+    p_id_manajer INT,
+    p_username TEXT,
+    p_password_hash TEXT,
+    p_nama_lengkap TEXT,
+    p_peran TEXT DEFAULT 'kasir'
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN
+        RAISE EXCEPTION 'Akses ditolak: Hanya Manajer yang berhak membuat akun pengguna baru';
+    END IF;
+
+    IF p_peran NOT IN ('manajer', 'kasir') THEN
+        RAISE EXCEPTION 'Peran tidak valid. Hanya manajer atau kasir';
+    END IF;
+
+    INSERT INTO pengguna (username, password_hash, nama_lengkap, peran, is_active)
+    VALUES (p_username, p_password_hash, p_nama_lengkap, p_peran, TRUE);
+END;
+$$;
+
 CREATE OR REPLACE PROCEDURE sp_buat_akun_kasir(
     p_id_manajer INT,
     p_username TEXT,
@@ -313,12 +342,7 @@ CREATE OR REPLACE PROCEDURE sp_buat_akun_kasir(
 )
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pengguna WHERE id_pengguna = p_id_manajer AND peran = 'manajer' AND is_active = TRUE) THEN
-        RAISE EXCEPTION 'Akses ditolak: Hanya Manajer yang berhak membuat akun kasir';
-    END IF;
-
-    INSERT INTO pengguna (username, password_hash, nama_lengkap, peran, is_active)
-    VALUES (p_username, p_password_hash, p_nama_lengkap, 'kasir', TRUE);
+    CALL sp_tambah_pengguna(p_id_manajer, p_username, p_password_hash, p_nama_lengkap, 'kasir');
 END;
 $$;
 

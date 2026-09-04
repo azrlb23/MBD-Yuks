@@ -9,8 +9,6 @@ async function runTests() {
   let failedCount = 0;
   let managerToken = '';
   let cashierToken = '';
-  let managerId = null;
-  let createdKasirId = null;
 
   async function testEndpoint(name, fetchFn, expectedStatus = 200, checkFn = () => true) {
     try {
@@ -51,7 +49,6 @@ async function runTests() {
   );
   if (mgrLogin.ok) {
     managerToken = mgrLogin.body.data.token;
-    managerId = mgrLogin.body.data.id_pengguna;
   }
 
   // 3. Auth - Login Cashier
@@ -66,24 +63,34 @@ async function runTests() {
     cashierToken = kasirLogin.body.data.token;
   }
 
-  // 4. Auth - Logout
-  await testEndpoint('4. POST /api/v1/auth/logout - Logout User', () =>
-    fetch(`${BASE_URL}/api/v1/auth/logout`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${managerToken}` }
-    }), 200, (b) => b.success
-  );
-
-  // 5. Akun - GET /api/v1/akun (Manager)
-  const akunRes = await testEndpoint('5. GET /api/v1/akun - List All Accounts (Manager)', () =>
+  // 4. Akun - GET /api/v1/akun (Manager)
+  await testEndpoint('4. GET /api/v1/akun - List All Accounts (Manager)', () =>
     fetch(`${BASE_URL}/api/v1/akun`, {
       headers: { Authorization: `Bearer ${managerToken}` }
     }), 200, (b) => b.success && Array.isArray(b.data)
   );
 
-  // 6. Akun - POST /api/v1/akun/kasir (Manager)
+  // 5. Akun - POST /api/v1/akun (Create New Manager Account)
+  const testMgrName = `mgr_test_${Date.now().toString().slice(-4)}`;
+  await testEndpoint('5. POST /api/v1/akun - Create New Manager Account', () =>
+    fetch(`${BASE_URL}/api/v1/akun`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${managerToken}`
+      },
+      body: JSON.stringify({
+        username: testMgrName,
+        password: 'password123',
+        nama_lengkap: 'Manajer Cabang Baru',
+        peran: 'manajer'
+      })
+    }), 201, (b) => b.success
+  );
+
+  // 6. Akun - POST /api/v1/akun/kasir (Create New Cashier Account)
   const testKasirName = `kasir_test_${Date.now().toString().slice(-4)}`;
-  const createAkunRes = await testEndpoint('6. POST /api/v1/akun/kasir - Create Cashier (Manager)', () =>
+  await testEndpoint('6. POST /api/v1/akun/kasir - Create New Cashier Account', () =>
     fetch(`${BASE_URL}/api/v1/akun/kasir`, {
       method: 'POST',
       headers: {
@@ -93,64 +100,27 @@ async function runTests() {
       body: JSON.stringify({
         username: testKasirName,
         password: 'password123',
-        nama_lengkap: 'Kasir Test Auto'
+        nama_lengkap: 'Kasir Shift Pagi Baru'
       })
     }), 201, (b) => b.success
   );
 
-  // Get ID of newly created cashier if list refreshed
-  if (createAkunRes.ok) {
-    const freshAkunList = await fetch(`${BASE_URL}/api/v1/akun`, {
-      headers: { Authorization: `Bearer ${managerToken}` }
-    }).then(r => r.json());
-    const newAccount = freshAkunList.data?.find(a => a.username === testKasirName);
-    if (newAccount) {
-      createdKasirId = newAccount.id_pengguna;
-    }
-  }
-
-  // 7. Akun - PUT /api/v1/akun/privilege (Manager)
-  await testEndpoint('7. PUT /api/v1/akun/privilege - Configure Privilege (Manager)', () =>
-    fetch(`${BASE_URL}/api/v1/akun/privilege`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${managerToken}`
-      },
-      body: JSON.stringify({
-        username: testKasirName,
-        aksi: 'GRANT',
-        objek: 'EXECUTE ON PROCEDURE sp_checkout_transaksi'
-      })
-    }), 200, (b) => b.success
-  );
-
-  // 8. Akun - DELETE /api/v1/akun/:id (Manager)
-  if (createdKasirId) {
-    await testEndpoint(`8. DELETE /api/v1/akun/${createdKasirId} - Deactivate Account (Manager)`, () =>
-      fetch(`${BASE_URL}/api/v1/akun/${createdKasirId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${managerToken}` }
-      }), 200, (b) => b.success
-    );
-  }
-
-  // 9. Barang - GET /api/v1/barang (Katalog)
-  await testEndpoint('9. GET /api/v1/barang - Get Menu Catalog', () =>
+  // 7. Barang - GET /api/v1/barang (Katalog)
+  await testEndpoint('7. GET /api/v1/barang - Get Menu Catalog', () =>
     fetch(`${BASE_URL}/api/v1/barang`, {
       headers: { Authorization: `Bearer ${cashierToken}` }
     }), 200, (b) => b.success && Array.isArray(b.data) && b.data.length > 0
   );
 
-  // 10. Barang - GET /api/v1/barang/:id (Detail Barang)
-  await testEndpoint('10. GET /api/v1/barang/1 - Get Product Detail ID=1', () =>
+  // 8. Barang - GET /api/v1/barang/:id (Detail Barang)
+  await testEndpoint('8. GET /api/v1/barang/1 - Get Product Detail ID=1', () =>
     fetch(`${BASE_URL}/api/v1/barang/1`, {
       headers: { Authorization: `Bearer ${cashierToken}` }
     }), 200, (b) => b.success && b.data.id_barang === 1
   );
 
-  // 11. Barang - PUT /api/v1/barang/:id (Update Harga & Spek - Manager)
-  await testEndpoint('11. PUT /api/v1/barang/1 - Update Price/Spec (Manager)', () =>
+  // 9. Barang - PUT /api/v1/barang/:id (Update Harga & Spek - Manager)
+  await testEndpoint('9. PUT /api/v1/barang/1 - Update Price/Spec (Manager)', () =>
     fetch(`${BASE_URL}/api/v1/barang/1`, {
       method: 'PUT',
       headers: {
@@ -164,8 +134,8 @@ async function runTests() {
     }), 200, (b) => b.success
   );
 
-  // 12. Restock - POST /api/v1/restock (Restock Stok - Manager)
-  await testEndpoint('12. POST /api/v1/restock - Restock Menu Item (Manager)', () =>
+  // 10. Restock - POST /api/v1/restock (Restock Stok - Manager)
+  await testEndpoint('10. POST /api/v1/restock - Restock Menu Item (Manager)', () =>
     fetch(`${BASE_URL}/api/v1/restock`, {
       method: 'POST',
       headers: {
@@ -180,15 +150,15 @@ async function runTests() {
     }), 200, (b) => b.success
   );
 
-  // 13. Restock - GET /api/v1/restock/riwayat (Laporan Restock - Manager)
-  await testEndpoint('13. GET /api/v1/restock/riwayat - Get Restock Report', () =>
+  // 11. Restock - GET /api/v1/restock/riwayat (Laporan Restock - Manager)
+  await testEndpoint('11. GET /api/v1/restock/riwayat - Get Restock Report', () =>
     fetch(`${BASE_URL}/api/v1/restock/riwayat`, {
       headers: { Authorization: `Bearer ${managerToken}` }
     }), 200, (b) => b.success && Array.isArray(b.data)
   );
 
-  // 14. Transaksi - POST /api/v1/transaksi/checkout (Checkout Kasir)
-  const checkoutRes = await testEndpoint('14. POST /api/v1/transaksi/checkout - Cashier Checkout', () =>
+  // 12. Transaksi - POST /api/v1/transaksi/checkout (Checkout Kasir)
+  const checkoutRes = await testEndpoint('12. POST /api/v1/transaksi/checkout - Cashier Checkout', () =>
     fetch(`${BASE_URL}/api/v1/transaksi/checkout`, {
       method: 'POST',
       headers: {
@@ -206,22 +176,54 @@ async function runTests() {
 
   const createdTrxId = checkoutRes.body?.data?.id_transaksi || 1;
 
-  // 15. Transaksi - GET /api/v1/transaksi (Transaksi Harian)
-  await testEndpoint('15. GET /api/v1/transaksi - Get Daily Transactions', () =>
+  // 13. Transaksi - GET /api/v1/transaksi (Transaksi Harian)
+  await testEndpoint('13. GET /api/v1/transaksi - Get Daily Transactions', () =>
     fetch(`${BASE_URL}/api/v1/transaksi`, {
       headers: { Authorization: `Bearer ${cashierToken}` }
     }), 200, (b) => b.success && Array.isArray(b.data)
   );
 
-  // 16. Transaksi - GET /api/v1/transaksi/struk/:id (Detail Struk Digital)
-  await testEndpoint(`16. GET /api/v1/transaksi/struk/${createdTrxId} - Get Receipt Detail`, () =>
+  // 14. Transaksi - GET /api/v1/transaksi/struk/:id (Detail Struk Digital)
+  await testEndpoint(`14. GET /api/v1/transaksi/struk/${createdTrxId} - Get Receipt Detail`, () =>
     fetch(`${BASE_URL}/api/v1/transaksi/struk/${createdTrxId}`, {
       headers: { Authorization: `Bearer ${cashierToken}` }
     }), 200, (b) => b.success && b.data
   );
 
-  // 17. Security Role Enforcement Test: Cashier trying manager-only endpoint
-  await testEndpoint('17. Security Test: Cashier trying Restock (Expecting 403)', () =>
+  // 15. Sistem - PATCH /api/v1/sistem/status (Toggle Status Entity)
+  await testEndpoint('15. PATCH /api/v1/sistem/status - Deactivate Account (Manager)', () =>
+    fetch(`${BASE_URL}/api/v1/sistem/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${managerToken}`
+      },
+      body: JSON.stringify({
+        entitas: 'akun',
+        id: 3,
+        is_active: false
+      })
+    }), 200, (b) => b.success
+  );
+
+  // 15b. Self-Deactivation Protection Test (Expecting Failure)
+  await testEndpoint('15b. Security Test: Manager trying to deactivate OWN account (Expecting Error)', () =>
+    fetch(`${BASE_URL}/api/v1/sistem/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${managerToken}`
+      },
+      body: JSON.stringify({
+        entitas: 'akun',
+        id: 1,
+        is_active: false
+      })
+    }), 500, (b) => b.success === false
+  );
+
+  // 16. Security Role Enforcement Test: Cashier trying manager-only endpoint
+  await testEndpoint('16. Security Test: Cashier trying Restock (Expecting 403)', () =>
     fetch(`${BASE_URL}/api/v1/restock`, {
       method: 'POST',
       headers: {
@@ -232,8 +234,8 @@ async function runTests() {
     }), 403, (b) => b.success === false
   );
 
-  // 18. Security Role Enforcement Test: Manager trying cashier-only checkout
-  await testEndpoint('18. Security Test: Manager trying Checkout (Expecting 403)', () =>
+  // 17. Security Role Enforcement Test: Manager trying cashier-only checkout
+  await testEndpoint('17. Security Test: Manager trying Checkout (Expecting 403)', () =>
     fetch(`${BASE_URL}/api/v1/transaksi/checkout`, {
       method: 'POST',
       headers: {
@@ -244,6 +246,14 @@ async function runTests() {
         items: [{ id_barang: 1, jumlah: 1 }]
       })
     }), 403, (b) => b.success === false
+  );
+
+  // 18. Auth - Logout Manager
+  await testEndpoint('18. POST /api/v1/auth/logout - Logout Manager User', () =>
+    fetch(`${BASE_URL}/api/v1/auth/logout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${managerToken}` }
+    }), 200, (b) => b.success
   );
 
   console.log('===========================================================');

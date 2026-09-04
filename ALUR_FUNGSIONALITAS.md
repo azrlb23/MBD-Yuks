@@ -81,25 +81,24 @@ Client → GET /api/v1/akun (header: Authorization: Bearer <token-manajer>)
 
 ---
 
-### `POST /api/v1/akun/kasir`
+### `POST /api/v1/akun`
 
-**Tujuan**: Manajer membuat akun kasir baru.
+**Tujuan**: Manajer membuat akun pengguna baru (Kasir atau Manajer).
 
 ```
-Client → POST /api/v1/akun/kasir
-Body: { username, password, nama_lengkap }
+Client → POST /api/v1/akun (atau POST /api/v1/akun/kasir)
+Body: { username, password, nama_lengkap, peran?: "kasir"|"manajer" }
 ```
 
 | # | Komponen | Aksi |
 |---|---|---|
 | 1 | 🔐 **`verifyToken`** | Validasi JWT + cek sesi aktif. |
 | 2 | 🔐 **`requireRole('manajer')`** | Pastikan pemanggilnya manajer. |
-| 3 | **`akun.controller.js` → `buatAkunKasir()`** | Ekstrak `username`, `password`, `nama_lengkap`. Jika ada yang kosong → ❌ 400 "Username, password, dan nama_lengkap wajib diisi". |
+| 3 | **`akun.controller.js` → `tambahPengguna()`** | Ekstrak `username`, `password`, `nama_lengkap`, `peran` (default `'kasir'`). Jika ada yang kosong → ❌ 400. Jika `peran` bukan `'manajer'` atau `'kasir'` → ❌ 400. |
 | 4 | **Controller** | `bcrypt.genSalt(10)` → `bcrypt.hash(password, salt)` → hasilkan `password_hash`. Proses hashing dilakukan di Node.js sebelum dikirim ke DB. |
-| 5 | 🗄️ **`executeWriteSP`** | Panggil `CALL sp_buat_akun_kasir($1, $2, $3, $4)` dengan `[id_manajer, username, password_hash, nama_lengkap]`. |
-| 6 | 🗄️ **`sp_buat_akun_kasir` (PostgreSQL)** | Verifikasi `id_manajer` adalah manajer aktif. Jika tidak → `RAISE EXCEPTION`. `INSERT INTO pengguna (username, password_hash, nama_lengkap, peran, is_active) VALUES (?, ?, ?, 'kasir', TRUE)`. Jika `username` sudah ada → error `23505` (unique violation). |
-| 7 | **Controller** | Tangkap error jika ada. |
-| 8 | 📤 **Response** | ✅ 201 `{ success: true, message: "Akun kasir '...' berhasil dibuat" }` |
+| 5 | 🗄️ **`executeWriteSP`** | Panggil `CALL sp_tambah_pengguna($1, $2, $3, $4, $5)` dengan `[id_manajer, username, password_hash, nama_lengkap, peran]`. |
+| 6 | 🗄️ **`sp_tambah_pengguna` (PostgreSQL)** | Verifikasi `id_manajer` adalah manajer aktif. Jika tidak → `RAISE EXCEPTION`. `INSERT INTO pengguna (username, password_hash, nama_lengkap, peran, is_active) VALUES (?, ?, ?, peran, TRUE)`. Jika `username` sudah ada → error `23505` (unique violation). |
+| 7 | 📤 **Response** | ✅ 201 `{ success: true, message: "Akun manajer/kasir 'username' berhasil dibuat" }` |
 
 **Error yang mungkin:**
 - Error `23505` dari PostgreSQL → username sudah ada (tangkap di catch jika diimplementasikan, saat ini diteruskan ke `errorHandler`).
@@ -370,7 +369,7 @@ Body: { entitas: "akun"|"barang"|"kategori", id: <angka>, is_active: true|false 
 | 2 | 🔐 **`requireRole('manajer')`** | Hanya manajer. |
 | 3 | **`sistem.controller.js` → `toggleStatus()`** | Ekstrak `entitas`, `id`, `is_active` dari `req.body`. Jika `entitas` tidak ada dalam daftar `['akun', 'barang', 'kategori']` → ❌ 400. Jika `id` bukan number atau `is_active` bukan boolean → ❌ 400. |
 | 4 | 🗄️ **`executeWriteSP`** | `CALL sp_toggle_status($1, $2, $3, $4)` dengan `[id_manajer, entitas, id, is_active]`. |
-| 5 | 🗄️ **`sp_toggle_status` (PostgreSQL)** | Verifikasi `id_manajer` manajer aktif. Jalankan cabang sesuai `entitas`: `'akun'` → `UPDATE pengguna SET is_active = ?`; `'barang'` → `UPDATE barang SET is_active = ?`; `'kategori'` → `UPDATE kategori SET is_active = ?`. Jika `entitas` tidak valid → `RAISE EXCEPTION`. |
+| 5 | 🗄️ **`sp_toggle_status` (PostgreSQL)** | Verifikasi `id_manajer` manajer aktif. Jalankan cabang sesuai `entitas`: <br> - `'akun'`: **Cek Proteksi Self-Deactivation** (jika `id_target === id_manajer` dan `is_active === false` → ❌ `RAISE EXCEPTION 'Anda tidak dapat menonaktifkan akun Anda sendiri'`). Jika menonaktifkan akun lain → `is_active = false` dan `token_aktif = NULL` (sesi pengguna target otomatis hangus/tertendang). <br> - `'barang'`: `UPDATE barang SET is_active = ?`. <br> - `'kategori'`: `UPDATE kategori SET is_active = ?`. |
 | 6 | 📤 **Response** | ✅ 200 `{ success: true, message: "Status akun/barang/kategori dengan ID X berhasil diubah menjadi aktif/non-aktif" }` |
 
 ---

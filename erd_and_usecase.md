@@ -24,7 +24,7 @@ rectangle "Sistem POS Kafe Jalur Langit" {
     usecase "UC-01 Checkout Penjualan" as UC1
     usecase "UC-02 Restock Barang" as UC2
     usecase "UC-03 Kelola Harga & Spesifikasi Produk" as UC3
-    usecase "UC-04 Kelola Akun Kasir & Privilege" as UC4
+    usecase "UC-04 Kelola Akun & Status Pengguna" as UC4
 }
 
 K --> UC0
@@ -76,13 +76,13 @@ M --> UC4
 - **Trigger Terkait**: `trg_validasi_harga_barang` (BEFORE INSERT OR UPDATE ON `barang`)
 - **Endpoint API**: `PUT /api/v1/barang/:id`
 
-#### UC-04 — Kelola Akun Kasir & Privilege
+#### UC-04 — Kelola Akun & Status Pengguna
 - **Aktor**: Manajer
-- **Deskripsi**: Pengelolaan akun pengguna kasir (pembuatan akun baru, pengaturan hak akses privilege, penonaktifan akun, serta daftar pengguna).
+- **Deskripsi**: Pengelolaan akun pengguna (pembuatan akun baru kasir/manajer, penonaktifan/pengaktifan status akun, serta melihat daftar pengguna).
 - **Pre-condition**: Manajer telah login (`peran = 'manajer'`).
-- **Post-condition**: Akun kasir berhasil dibuat/dikonfigurasi/dinonaktifkan pada tabel `pengguna`.
-- **Stored Procedure**: `sp_get_daftar_pengguna`, `sp_buat_akun_kasir`, `sp_atur_privilege`, `sp_nonaktifkan_akun`
-- **Endpoint API**: `GET /api/v1/akun`, `POST /api/v1/akun/kasir`, `PUT /api/v1/akun/privilege`, `DELETE /api/v1/akun/:id`
+- **Post-condition**: Akun pengguna berhasil dibuat/diubah statusnya pada tabel `pengguna`.
+- **Stored Procedure**: `sp_get_daftar_pengguna`, `sp_tambah_pengguna`, `sp_toggle_status`
+- **Endpoint API**: `GET /api/v1/akun`, `POST /api/v1/akun`, `PATCH /api/v1/sistem/status`
 
 ---
 
@@ -120,6 +120,7 @@ erDiagram
         string nama_lengkap
         string peran
         boolean is_active
+        string token_aktif
     }
 
     kategori {
@@ -183,6 +184,7 @@ Table pengguna {
   nama_lengkap varchar(100) [not null]
   peran varchar(20) [not null]
   is_active boolean [not null, default: true]
+  token_aktif varchar(255)
 }
 
 Table kategori {
@@ -233,3 +235,68 @@ Table restock {
   created_at timestamptz [not null, default: `now()`]
 }
 ```
+
+---
+
+## 4. Fundamental & Penjelasan Lengkap Relasi ERD
+
+### 4.1 Kelompok Utama Tabel
+ERD ini merepresentasikan sistem Point of Sale (POS) Kafe Jalur Langit dengan **7 tabel** yang terbagi dalam **3 Kelompok Utama**:
+
+1. **Kelompok Master Data (Data Induk yang Jarang Berubah)**:
+   - `pengguna`: Akun Kasir & Manajer untuk autentikasi.
+   - `kategori`: Pengelompokan jenis menu (Kopi, Non-Kopi, Pastry, Makanan Berat, Cemilan).
+   - `barang`: Katalog menu kafe (Nama, Harga, Stok porsi, dan Spesifikasi varian JSONB).
+
+2. **Kelompok Transaksi Penjualan (Alur Kerja Kasir)**:
+   - `transaksi`: Header/Nota penjualan (Kasir pemproses, Total bayar, Tanggal).
+   - `detail_transaksi`: Rincian item per nota (Barang dibeli, Jumlah, Harga snapshot, Subtotal).
+   - `struk`: Snapshot struk digital lengkap format JSONB (Relasi 1-ke-1).
+
+3. **Kelompok Log Inventaris (Alur Kerja Manajer)**:
+   - `restock`: Jurnal pencatatan stok masuk/keluar dari supplier.
+
+---
+
+### 4.2 Alur Data (*Data Flow*)
+```
+[pengguna] ────────────+
+                       │
+[kategori] ───> [barang]
+                   │           │
+      (Checkout)   │           │ (Restock)
+                   ▼           ▼
+              [transaksi]  [restock] (Siapa Manajer & Tambah Stok)
+                   │
+                   ├───────────► [detail_transaksi] (Item & Stok berkurang)
+                   │
+                   └───────────► [struk] (Snapshot Struk JSONB)
+```
+
+---
+
+### 4.3 Pemetaan Jenis Kardinalitas Relasi
+
+#### 1️⃣ : 1️⃣ **One-to-One (Satu-ke-Satu)**
+- **`transaksi` $\leftrightarrow$ `struk`**: Satu `transaksi` memiliki tepat **satu** `struk` digital. Batasan `UNIQUE` diterapkan pada `struk.id_transaksi`.
+
+#### 1️⃣ : ♾️ **One-to-Many (Satu-ke-Banyak)** & ♾️ : 1️⃣ **Many-to-One**
+- **`kategori` $\rightarrow$ `barang`**: Satu kategori memiliki **banyak** barang. Setiap barang milik **satu** kategori.
+- **`pengguna` $\rightarrow$ `transaksi`**: Satu Kasir memproses **banyak** transaksi. Setiap transaksi diproses oleh **satu** Kasir.
+- **`pengguna` $\rightarrow$ `restock`**: Satu Manajer melakukan **banyak** kali pencatatan restock.
+- **`barang` $\rightarrow$ `restock`**: Satu barang bisa di-restock **banyak** kali seiring waktu.
+- **`transaksi` $\rightarrow$ `detail_transaksi`**: Satu transaksi nota memiliki **banyak** detail item pesanan.
+- **`barang` $\rightarrow$ `detail_transaksi`**: Satu barang dapat dibeli di **banyak** detail transaksi yang berbeda.
+
+#### ♾️ : ♾️ **Many-to-Many (Banyak-ke-Banyak) yang Diurai**
+Relasi Many-to-Many diurai menggunakan *Junction Table* (Tabel Penghubung):
+- **`transaksi` $\leftrightarrow$ `barang`**: Diurai oleh tabel **`detail_transaksi`** (`transaksi` 1:N `detail_transaksi` N:1 `barang`).
+- **`pengguna` $\leftrightarrow$ `barang`**: Diurai oleh tabel **`restock`** (`pengguna` 1:N `restock` N:1 `barang`).
+
+---
+
+### 4.4 Desain Khusus: Historic Snapshot Pattern (`detail_transaksi`)
+Tabel `detail_transaksi` sengaja menyimpan duplikat kolom `nama_barang` dan `harga_satuan` dari tabel `barang`. Ini menerapkan **Historic Snapshot Pattern**:
+- Jika harga barang naik atau nama barang diubah oleh Manajer di masa depan, **histori transaksi lama tidak akan berubah**.
+- Laporan penjualan masa lalu tetap valid mencatat harga pada saat transaksi tersebut terjadi.
+

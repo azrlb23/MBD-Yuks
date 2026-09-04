@@ -475,7 +475,7 @@
           }
         },
         {
-          "name": "Buat Akun Kasir Baru (sp_buat_akun_kasir - Manajer)",
+          "name": "Buat Akun Pengguna / Kasir / Manajer (sp_tambah_pengguna - Manajer)",
           "request": {
             "method": "POST",
             "header": [
@@ -490,19 +490,18 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"kasir_shift_siang\",\n  \"password\": \"PasswordKasir2026!\",\n  \"nama_lengkap\": \"Budi Rahardjo (Kasir Shift Siang)\"\n}"
+              "raw": "{\n  \"username\": \"manajer_cabang\",\n  \"password\": \"PasswordManajer2026!\",\n  \"nama_lengkap\": \"Siti Manajer Cabang\",\n  \"peran\": \"manajer\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/akun/kasir",
+              "raw": "{{baseUrl}}/akun",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "akun",
-                "kasir"
+                "akun"
               ]
             },
-            "description": "Manajer membuat akun pengguna Kasir baru beserta enkripsi password hash via Stored Procedure `sp_buat_akun_kasir`."
+            "description": "Manajer membuat akun pengguna baru (Kasir atau Manajer) beserta enkripsi password hash via Stored Procedure `sp_tambah_pengguna`."
           }
         }
       ]
